@@ -1,34 +1,66 @@
+import csv
 import requests
-from bs4 import BeautifulSoup
+
+from datetime import datetime
+from pathlib import Path
 
 
-url = "https://openphish.com/"
+feed_url = "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt"
+csv_file = Path("data/openphish.csv")
 
-response = requests.get(url, timeout=10)
+response = requests.get(feed_url, timeout=10)
 
 print("HTTP status:", response.status_code)
 print("Content-Type:", response.headers.get("Content-Type"))
-print("HTML size:", len(response.text))
+print("Size:", len(response.text))
 
-soup = BeautifulSoup(response.text, "html.parser")
+urls = response.text.splitlines()
 
-print("Page title:", soup.title)
-print("Title text:", soup.title.text)
+clean_urls = []
 
-tables = soup.find_all("table")
+for url in urls:
+    url = url.strip()
 
-print("Tables found:", len(tables))
+    if url:
+        clean_urls.append(url)
 
-for index, table in enumerate(tables, start=1):
-    print()
-    print("Table:", index)
+unique_urls = set(clean_urls)
 
-    rows = table.find_all("tr")
+collected_at = datetime.now().astimezone().isoformat(timespec="seconds")
 
-    print("Rows:", len(rows))
+existing_urls = set()
 
-    for row in rows[:3]:
-        cells = row.find_all(["th", "td"])
-        values = [cell.get_text(" ", strip=True) for cell in cells]
+if csv_file.exists():
+    with open(csv_file, "r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
 
-        print(values)
+        for row in reader:
+            existing_urls.add(row["url"])
+
+new_urls = []
+
+for url in clean_urls:
+    if url not in existing_urls:
+        new_urls.append(url)
+
+print()
+print("Collected at:", collected_at)
+print("Raw lines:", len(urls))
+print("Clean URLs:", len(clean_urls))
+print("Unique URLs in current feed:", len(unique_urls))
+print("Already saved URLs:", len(existing_urls))
+print("New URLs:", len(new_urls))
+
+file_exists = csv_file.exists()
+
+with open(csv_file, "a", newline="", encoding="utf-8") as file:
+    writer = csv.writer(file)
+
+    if not file_exists:
+        writer.writerow(["url", "collected_at"])
+
+    for url in new_urls:
+        writer.writerow([url, collected_at])
+
+print()
+print("Saved to:", csv_file)
