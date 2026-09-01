@@ -2,33 +2,60 @@ import requests
 from bs4 import BeautifulSoup
 
 
-url = "https://openphish.com/"
+URL = "https://openphish.com/"
 
-response = requests.get(url, timeout=10)
 
-print("HTTP status:", response.status_code)
-print("Content-Type:", response.headers.get("Content-Type"))
-print("HTML size:", len(response.text))
+def fetch_homepage(url):
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
 
-soup = BeautifulSoup(response.text, "html.parser")
+    return response.text
 
-print("Page title:", soup.title)
-print("Title text:", soup.title.text)
 
-tables = soup.find_all("table")
+def get_top_brands(html, limit=3):
+    soup = BeautifulSoup(html, "html.parser")
 
-print("Tables found:", len(tables))
+    tables = soup.find_all("table")
 
-for index, table in enumerate(tables, start=1):
-    print()
-    print("Table:", index)
+    if not tables:
+        return []
 
-    rows = table.find_all("tr")
+    brand_table = tables[0]
 
-    print("Rows:", len(rows))
+    brands = []
 
-    for row in rows[:3]:
+    rows = brand_table.find_all("tr")
+
+    for row in rows:
         cells = row.find_all(["th", "td"])
         values = [cell.get_text(" ", strip=True) for cell in cells]
 
-        print(values)
+        if len(values) == 2:
+            brand = values[0]
+            percentage = values[1]
+
+            brands.append((brand, percentage))
+
+    return brands[:limit]
+
+
+def main():
+    html = fetch_homepage(URL)
+
+    brands = get_top_brands(html)
+
+    print("===== OpenPhish homepage analysis =====")
+    print()
+
+    if not brands:
+        print("Targeted brands not found.")
+        return
+
+    print("Top 3 targeted brands:")
+
+    for index, (brand, percentage) in enumerate(brands, start=1):
+        print(f"{index}. {brand} - {percentage}")
+
+
+if __name__ == "__main__":
+    main()
